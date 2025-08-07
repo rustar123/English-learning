@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tense Timeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+        }
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            height: 100px;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .info-box {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(10px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .info-box.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl mx-auto text-center">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">第二章：时态时间轴</h1>
+        <p class="text-gray-600 mb-6">点击下方按钮，看看动作发生在时间的哪个点上。</p>
+    </div>
+
+    <div class="w-full max-w-4xl mx-auto mb-8">
+        <div class="timeline-container">
+            <canvas id="timelineCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="infoBox" class="info-box w-full max-w-4xl p-4 bg-white rounded-xl shadow-lg border border-gray-200 text-center">
+        <h3 id="infoTitle" class="font-bold text-lg mb-1"></h3>
+        <p id="infoDesc" class="text-gray-600 mb-2"></p>
+        <p id="infoExample" class="font-mono text-blue-600 bg-blue-50 p-2 rounded-md"></p>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-3 mt-8">
+        <button data-tense="past" class="tense-btn bg-white hover:bg-red-50 border border-gray-300 text-red-600 font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-200">一般过去时</button>
+        <button data-tense="present" class="tense-btn bg-white hover:bg-green-50 border border-gray-300 text-green-600 font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-200">一般现在时</button>
+        <button data-tense="future" class="tense-btn bg-white hover:bg-blue-50 border border-gray-300 text-blue-600 font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-200">一般将来时</button>
+        <button data-tense="present_continuous" class="tense-btn bg-white hover:bg-yellow-50 border border-gray-300 text-yellow-600 font-semibold py-2 px-4 rounded-lg shadow-sm transition-all duration-200">现在进行时</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('timelineCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = canvas.parentElement;
+
+        let width, height;
+        const padding = 40;
+
+        const tenseData = {
+            past: {
+                title: "一般过去时 (Simple Past)",
+                desc: "“想当年...” 事情已经发生，彻底翻篇儿了。我们在时间轴的过去部分，用一个叉叉标记这个“已完成”的动作。",
+                example: "I walked to school yesterday.",
+                color: "#DB4437" // Red
+            },
+            present: {
+                title: "一般现在时 (Simple Present)",
+                desc: "“天天如此，风雨无阻。” 用来描述一个习惯、一个事实或者一个真理。它不一定只在“现在”发生，所以我们用一连串的点来表示它的重复性。",
+                example: "The sun rises in the east.",
+                color: "#0F9D58" // Green
+            },
+            future: {
+                title: "一般将来时 (Simple Future)",
+                desc: "“画个大饼！” 对未来的计划、预测或者一个临时的决定。我们在时间轴的未来部分，用一个空心圆圈标记这个“待办事项”。",
+                example: "I will call you tomorrow.",
+                color: "#4285F4" // Blue
+            },
+            present_continuous: {
+                title: "现在进行时 (Present Continuous)",
+                desc: "“就是现在，马上！” 强调动作正在发生，此时此刻！我们在“现在”这个点上，画一个闪亮的星星来表示它的“正在进行”。",
+                example: "I am talking to you right now.",
+                color: "#F4B400" // Yellow
+            }
+        };
+
+        const infoBox = document.getElementById('infoBox');
+        const infoTitle = document.getElementById('infoTitle');
+        const infoDesc = document.getElementById('infoDesc');
+        const infoExample = document.getElementById('infoExample');
+
+        function resizeCanvas() {
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            drawTimeline();
+        }
+
+        function drawTimeline() {
+            ctx.clearRect(0, 0, width, height);
+            const y = height / 2;
+
+            // Draw the main line
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.strokeStyle = '#9CA3AF'; // gray-400
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw arrow heads
+            ctx.beginPath();
+            ctx.moveTo(width - padding, y);
+            ctx.lineTo(width - padding - 10, y - 5);
+            ctx.moveTo(width - padding, y);
+            ctx.lineTo(width - padding - 10, y + 5);
+            ctx.stroke();
+
+            // Draw labels
+            ctx.font = '14px Noto Sans SC';
+            ctx.fillStyle = '#6B7280'; // gray-500
+            ctx.textAlign = 'center';
+            ctx.fillText('过去 (Past)', padding + 30, y + 25);
+            ctx.fillText('将来 (Future)', width - padding - 30, y + 25);
+
+            // Draw "Present" line and label
+            const presentX = width / 2;
+            ctx.beginPath();
+            ctx.moveTo(presentX, y - 10);
+            ctx.lineTo(presentX, y + 10);
+            ctx.strokeStyle = '#374151'; // gray-700
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#1F2937'; // gray-800
+            ctx.font = 'bold 14px Noto Sans SC';
+            ctx.fillText('现在 (Present)', presentX, y - 20);
+        }
+
+        function animateTense(tense) {
+            drawTimeline(); // Redraw base timeline
+            const y = height / 2;
+            const presentX = width / 2;
+            const pastX = presentX / 2;
+            const futureX = presentX + (width - presentX) / 2;
+
+            ctx.save();
+            ctx.lineWidth = 3;
+            
+            let currentTense = tenseData[tense];
+            ctx.strokeStyle = currentTense.color;
+            ctx.fillStyle = currentTense.color;
+
+            switch (tense) {
+                case 'past':
+                    // Draw an 'X' in the past
+                    ctx.beginPath();
+                    ctx.moveTo(pastX - 8, y - 8);
+                    ctx.lineTo(pastX + 8, y + 8);
+                    ctx.moveTo(pastX + 8, y - 8);
+                    ctx.lineTo(pastX - 8, y + 8);
+                    ctx.stroke();
+                    break;
+                case 'present':
+                    // Draw repeating dots
+                    for (let i = 0; i < 7; i++) {
+                        ctx.beginPath();
+                        const x = padding + 20 + i * ((width - padding * 2 - 40) / 6);
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    break;
+                case 'future':
+                    // Draw a circle in the future
+                    ctx.beginPath();
+                    ctx.arc(futureX, y, 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                    break;
+                case 'present_continuous':
+                    // Draw a star at present
+                    drawStar(presentX, y, 5, 12, 6);
+                    break;
+            }
+            ctx.restore();
+            
+            // Update and show info box
+            infoTitle.textContent = currentTense.title;
+            infoTitle.style.color = currentTense.color;
+            infoDesc.textContent = currentTense.desc;
+            infoExample.textContent = currentTense.example;
+            infoBox.classList.add('visible');
+        }
+        
+        function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        document.querySelectorAll('.tense-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tense = e.target.getAttribute('data-tense');
+                animateTense(tense);
+            });
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Initial setup
+        resizeCanvas();
+        animateTense('present_continuous'); // Start with a default view
+    </script>
+</body>
+</html>
