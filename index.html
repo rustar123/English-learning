@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>句子分析器</title>
+    <title>句子分析器 v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -29,9 +29,9 @@
 </head>
 <body class="bg-white text-gray-800 p-4 md:p-6">
     <div class="w-full max-w-2xl mx-auto">
-        <h3 class="text-xl font-bold text-center mb-4">句子分析器 (Sentence Analyzer)</h3>
+        <h3 class="text-xl font-bold text-center mb-4">句子分析器 (Sentence Analyzer) v2.0</h3>
         <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" id="sentenceInput" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="例如: She might buy a new car.">
+            <input type="text" id="sentenceInput" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="例如: I buy a book for her.">
             <button id="analyzeBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-transform transform active:scale-95">分析句子</button>
         </div>
         <div id="analysisResult" class="analysis-box hidden"></div>
@@ -42,6 +42,7 @@
         const beVerbs = ['am', 'is', 'are', 'was', 'were', 'be', 'being', 'been'];
         const haveVerbs = ['have', 'has', 'had'];
         const linkingVerbs = ['look', 'looks', 'looked', 'sound', 'sounds', 'sounded', 'feel', 'feels', 'felt', 'taste', 'tastes', 'tasted', 'smell', 'smells', 'smelled', 'become', 'becomes', 'became', 'get', 'gets', 'got', 'grow', 'grows', 'grew', 'turn', 'turns', 'turned', 'remain', 'remains', 'remained', 'keep', 'keeps', 'kept', 'stay', 'stays', 'stayed', 'seem', 'seems', 'seemed', 'appear', 'appears', 'appeared'];
+        const prepositions = ['for', 'to', 'in', 'on', 'at', 'with', 'from', 'by', 'about', 'of', 'over', 'under', 'above', 'below'];
 
         const analyzeBtn = document.getElementById('analyzeBtn');
         const sentenceInput = document.getElementById('sentenceInput');
@@ -55,65 +56,89 @@
         });
 
         function analyzeSentence() {
-            let sentence = sentenceInput.value.toLowerCase().replace(/[.?]/g, '');
+            let sentence = sentenceInput.value.trim().toLowerCase().replace(/[.?]/g, '');
             if (!sentence) return;
 
             let words = sentence.split(/\s+/);
             let resultHTML = `<h4 class="font-bold mb-3">分析结果:</h4>`;
-            let mainVerb = null;
-            let mainVerbIndex = -1;
-
-            // Simple analysis logic
-            let subject = words[0];
-            resultHTML += `<p><span class="tag bg-green-100 text-green-800">主语 (Subject)</span> ${subject}</p>`;
-
-            let verbPhrase = [];
-            let objectPhrase = [];
-            let foundVerb = false;
-
-            for (let i = 1; i < words.length; i++) {
-                let word = words[i];
-                let identified = false;
-
-                if (modals.includes(word)) {
-                    verbPhrase.push(`<span class="tag bg-purple-100 text-purple-800">情态动词 (Modal)</span> ${word}`);
-                    foundVerb = true;
-                    identified = true;
-                } else if (haveVerbs.includes(word) || beVerbs.includes(word)) {
-                     // Heuristic: if it's followed by another verb-like word, it's likely an auxiliary
-                    let nextWord = words[i+1];
-                    if(nextWord && !modals.includes(nextWord) && !beVerbs.includes(nextWord) && !haveVerbs.includes(nextWord)){
-                        verbPhrase.push(`<span class="tag bg-yellow-100 text-yellow-800">助动词 (Auxiliary)</span> ${word}`);
-                        foundVerb = true;
-                        identified = true;
-                    }
-                }
-                
-                if (!identified && !foundVerb) {
-                     // This is likely the main verb if we haven't found one yet.
-                     mainVerb = word;
-                     mainVerbIndex = i;
-                     foundVerb = true;
-                } else if (foundVerb && i > mainVerbIndex && mainVerbIndex !== -1) {
-                    objectPhrase.push(word);
-                }
-            }
             
-            if(mainVerb){
-                let verbType = '动作动词 (Action)';
-                if(linkingVerbs.includes(mainVerb) || beVerbs.includes(mainVerb)){
-                    verbType = '系动词 (Linking)';
+            // Component parts
+            let subject = [];
+            let verbPhrase = [];
+            let directObject = [];
+            let prepPhrases = [];
+            let currentPrepPhrase = null;
+
+            // Simple state machine for parsing
+            let state = 'subject'; 
+
+            for (let i = 0; i < words.length; i++) {
+                let word = words[i];
+
+                if (state === 'subject') {
+                    if (modals.includes(word) || beVerbs.includes(word) || haveVerbs.includes(word) || i > 0) {
+                        state = 'verb';
+                        // Reprocess current word in 'verb' state
+                        i--; 
+                        continue;
+                    }
+                    subject.push(word);
+                } else if (state === 'verb') {
+                    let isModal = modals.includes(word);
+                    let isAux = beVerbs.includes(word) || haveVerbs.includes(word);
+                    
+                    if (isModal) {
+                        verbPhrase.push({type: '情态动词 (Modal)', word: word, color: 'purple'});
+                    } else if (isAux) {
+                        verbPhrase.push({type: '助动词 (Auxiliary)', word: word, color: 'yellow'});
+                    } else {
+                        // It's the main verb
+                        let verbType = '动作动词 (Action)';
+                        if (linkingVerbs.includes(word) || beVerbs.includes(word)) {
+                            verbType = '系动词 (Linking)';
+                        }
+                        verbPhrase.push({type: `实义动词 (Main) <span class="text-sm text-gray-500">(${verbType})</span>`, word: word, color: 'red'});
+                        state = 'object';
+                    }
+                } else if (state === 'object') {
+                    if (prepositions.includes(word)) {
+                        state = 'prepositional_phrase';
+                        if (currentPrepPhrase) prepPhrases.push(currentPrepPhrase);
+                        currentPrepPhrase = { prep: word, phrase: [] };
+                    } else {
+                        directObject.push(word);
+                    }
+                } else if (state === 'prepositional_phrase') {
+                     if (prepositions.includes(word)) {
+                        if (currentPrepPhrase) prepPhrases.push(currentPrepPhrase);
+                        currentPrepPhrase = { prep: word, phrase: [] };
+                     } else {
+                        currentPrepPhrase.phrase.push(word);
+                     }
                 }
-                verbPhrase.push(`<span class="tag bg-red-100 text-red-800">实义动词 (Main)</span> ${mainVerb} <span class="text-sm text-gray-500">(${verbType})</span>`);
+            }
+            if (currentPrepPhrase) prepPhrases.push(currentPrepPhrase);
+
+            // Build HTML
+            if (subject.length > 0) {
+                resultHTML += `<p><span class="tag bg-green-100 text-green-800">主语 (Subject)</span> ${subject.join(' ')}</p>`;
+            }
+            if (verbPhrase.length > 0) {
+                resultHTML += `<div class="my-2">`;
+                verbPhrase.forEach(v => {
+                    resultHTML += `<p><span class="tag bg-${v.color}-100 text-${v.color}-800">${v.type}</span> ${v.word}</p>`;
+                });
+                resultHTML += `</div>`;
+            }
+            if (directObject.length > 0) {
+                resultHTML += `<p><span class="tag bg-indigo-100 text-indigo-800">直接宾语 (Direct Object)</span> ${directObject.join(' ')}</p>`;
+            }
+            if (prepPhrases.length > 0) {
+                 prepPhrases.forEach(pp => {
+                    resultHTML += `<p><span class="tag bg-cyan-100 text-cyan-800">介词短语 (Prep. Phrase)</span> ${pp.prep} ${pp.phrase.join(' ')}</p>`;
+                 });
             }
 
-            if(verbPhrase.length > 0){
-                resultHTML += `<div class="my-2">${verbPhrase.join('<br>')}</div>`;
-            }
-
-            if (objectPhrase.length > 0) {
-                resultHTML += `<p><span class="tag bg-indigo-100 text-indigo-800">宾语/表语 (Object/Complement)</span> ${objectPhrase.join(' ')}</p>`;
-            }
 
             analysisResult.innerHTML = resultHTML;
             analysisResult.classList.remove('hidden');
@@ -121,4 +146,3 @@
     </script>
 </body>
 </html>
-
