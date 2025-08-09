@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态语法建造模拟器 v2.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background-color: #f0f4f8;
+        }
+        #animation-canvas {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .syntax-block {
+            position: absolute;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 1s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        .word-block { background-color: #e0e7ff; color: #3730a3; border: 2px solid #c7d2fe; }
+        .phrase-block { background-color: #d1fae5; color: #065f46; border: 2px solid #a7f3d0; padding: 1rem 1.5rem; }
+        .component-block { background-color: #fee2e2; color: #991b1b; border: 2px solid #fecaca; padding: 1.25rem 2rem; font-size: 1.125rem; }
+        .sentence-block { background-color: #fef9c3; color: #854d0e; border: 2px solid #fef08a; padding: 1.5rem 2.5rem; font-size: 1.25rem; }
+        .label {
+            position: absolute;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #6b7280;
+            transition: opacity 0.5s ease-in-out 0.5s;
+            opacity: 0;
+        }
+        .sentence-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .sentence-btn.active {
+            background-color: #4f46e5;
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.4);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex items-center justify-center min-h-screen">
+    <div class="max-w-4xl w-full mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-2 text-gray-800">动态语法建造模拟器 v2.1</h1>
+        <p id="status-text" class="text-center text-gray-500 mb-4 h-6 transition-opacity duration-300">请选择一个例句，然后开始建造。</p>
+        
+        <div id="sentence-selector" class="flex flex-wrap justify-center gap-3 mb-4"></div>
+
+        <div id="animation-canvas"></div>
+        
+        <div class="mt-6 flex justify-center">
+            <button id="build-btn" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 active:scale-95">
+                开始建造
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const buildBtn = document.getElementById('build-btn');
+        const canvas = document.getElementById('animation-canvas');
+        const statusText = document.getElementById('status-text');
+        const selectorContainer = document.getElementById('sentence-selector');
+        let animationInProgress = false;
+        let currentSentenceIndex = 0;
+
+        const sentences = [
+            {
+                id: 1,
+                full: "The beautiful girl smiled gracefully.",
+                words: ["The", "beautiful", "girl", "smiled", "gracefully"],
+                animationSteps: [
+                    { action: 'showWords', text: '第一步：准备“砖块” - 单词 (Words)' },
+                    { action: 'formNounPhrase', text: '第二步：组合“零件” - 将单词构造成名词短语' },
+                    { action: 'identifyVerbAndAdverb', text: '同时，识别出动词和副词' },
+                    { action: 'formPredicatePhrase', text: '第三步：组合“谓语部分” - 副词修饰动词' },
+                    { action: 'assignRoles', text: '第四步：搭建“骨架” - 分配主语和谓语' },
+                    { action: 'formSentence', text: '第五步：封顶！- 组合成完整的句子' },
+                    { action: 'showFinalSentence', text: '建造完成！一个结构清晰的句子诞生了。' }
+                ]
+            },
+            {
+                id: 2,
+                full: "A small cat is sleeping.",
+                words: ["A", "small", "cat", "is", "sleeping"],
+                animationSteps: [
+                    { action: 'showWords', text: '第一步：准备“砖块” - 单词 (Words)' },
+                    { action: 'formNounPhrase', text: '第二步：组合主语部分的“零件”' },
+                    { action: 'formVerbPhrase', text: '第三步：组合谓语部分的“零件” - 助动词+动词' },
+                    { action: 'assignRoles', text: '第四步：搭建“骨架” - 分配主语和谓语' },
+                    { action: 'formSentence', text: '第五步：封顶！- 组合成完整的句子' },
+                    { action: 'showFinalSentence', text: '建造完成！现在进行时的句子诞生了。' }
+                ]
+            },
+            {
+                id: 3,
+                full: "We will build a house.",
+                words: ["We", "will", "build", "a", "house"],
+                animationSteps: [
+                    { action: 'showWords', text: '第一步：准备“砖块” - 单词 (Words)' },
+                    { action: 'formVerbPhrase', text: '第二步：组合谓语 - 情态动词+动词' },
+                    { action: 'formObjectPhrase', text: '第三步：组合宾语 - 冠词+名词' },
+                    { action: 'assignAllRoles', text: '第四步：搭建“骨架” - 分配主谓宾' },
+                    { action: 'formSentence', text: '第五步：封顶！- 组合成完整的句子' },
+                    { action: 'showFinalSentence', text: '建造完成！一个带情态动词的句子诞生了。' }
+                ]
+            }
+        ];
+
+        function createBlock(id, text, type, top, left) {
+            const block = document.createElement('div');
+            block.id = id;
+            block.className = `syntax-block ${type}-block`;
+            block.textContent = text;
+            block.style.top = `${top}px`;
+            block.style.left = `${left}px`;
+            canvas.appendChild(block);
+            return block;
+        }
+
+        function createLabel(text, top, left) {
+            const label = document.createElement('div');
+            label.className = 'label';
+            label.textContent = text;
+            label.style.top = `${top}px`;
+            label.style.left = `${left}px`;
+            canvas.appendChild(label);
+            return label;
+        }
+
+        async function runAnimation() {
+            if (animationInProgress) return;
+            animationInProgress = true;
+            buildBtn.disabled = true;
+            buildBtn.textContent = '建造中...';
+            canvas.innerHTML = '';
+
+            const sentenceData = sentences[currentSentenceIndex];
+            const animationSteps = sentenceData.animationSteps;
+
+            for (let i = 0; i < animationSteps.length; i++) {
+                statusText.style.opacity = 0;
+                await new Promise(resolve => setTimeout(resolve, 300));
+                statusText.textContent = animationSteps[i].text;
+                statusText.style.opacity = 1;
+                // Dynamically call the correct animation function with sentence data
+                await window[animationSteps[i].action](sentenceData);
+                await new Promise(resolve => setTimeout(resolve, 2200));
+            }
+
+            buildBtn.disabled = false;
+            buildBtn.textContent = '重新建造';
+            animationInProgress = false;
+        }
+
+        // --- Generic Animation Functions ---
+        async function showWords(data) {
+            const positions = [
+                [[50, 50], [50, 130], [50, 250], [150, 400], [250, 400]], // Sentence 1
+                [[50, 50], [50, 120], [50, 220], [150, 350], [150, 420]], // Sentence 2
+                [[50, 50], [150, 150], [150, 220], [250, 350], [250, 420]]  // Sentence 3
+            ];
+            data.words.forEach((word, index) => {
+                const block = createBlock(`word-${index}`, word, 'word', positions[data.id-1][index][0], positions[data.id-1][index][1]);
+                setTimeout(() => {
+                    block.style.opacity = 1;
+                    block.style.transform = 'scale(1) translateY(0)';
+                }, index * 150);
+            });
+        }
+        
+        async function formSentence(data) {
+            document.querySelectorAll('.component-block').forEach(el => {
+                el.style.top = '380px';
+                el.style.left = '50%';
+                el.style.transform = 'translateX(-50%) scale(0.5)';
+                el.style.opacity = 0;
+            });
+            document.querySelectorAll('.label').forEach(l => l.style.opacity = 0);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const sentence = createBlock('sentence', data.full, 'sentence', 380, 100);
+            const labelSen = createLabel('完整句子 (Complete Sentence)', 360, 100);
+            setTimeout(() => {
+                sentence.style.opacity = 1;
+                sentence.style.transform = 'scale(1) translateY(0)';
+                labelSen.style.opacity = 1;
+            }, 50);
+        }
+
+        async function showFinalSentence() {
+             const sentence = document.getElementById('sentence');
+             sentence.style.top = '200px';
+             sentence.style.left = '50%';
+             sentence.style.transform = 'translateX(-50%)';
+             document.querySelector('.label').style.top = '180px';
+             document.querySelector('.label').style.left = '50%';
+             document.querySelector('.label').style.transform = 'translateX(-50%)';
+        }
+
+        // --- Sentence 1 Specific Animations ---
+        async function formNounPhrase(data) {
+             if (data.id !== 1 && data.id !== 2) return;
+             const wordCount = data.id === 1 ? 3 : 3;
+             const phraseText = data.id === 1 ? "The beautiful girl" : "A small cat";
+             
+             for(let i=0; i < wordCount; i++){
+                const word = document.getElementById(`word-${i}`);
+                word.style.top = '200px';
+                word.style.left = '150px';
+                word.style.opacity = 0;
+                word.style.transform = 'scale(0.5)';
+             }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const np = createBlock('np', phraseText, 'phrase', 200, 50);
+            const label = createLabel('名词短语 (Noun Phrase)', 180, 50);
+            setTimeout(() => {
+                np.style.opacity = 1; np.style.transform = 'scale(1) translateY(0)'; label.style.opacity = 1;
+            }, 50);
+        }
+        async function identifyVerbAndAdverb() {
+            const labelVp = createLabel('动词 (Verb)', 130, 400);
+            const labelAdvp = createLabel('副词 (Adverb)', 230, 400);
+            setTimeout(() => { labelVp.style.opacity = 1; labelAdvp.style.opacity = 1; }, 50);
+        }
+        async function formPredicatePhrase() {
+            const smiled = document.getElementById('word-3');
+            const gracefully = document.getElementById('word-4');
+            document.querySelectorAll('.label').forEach(l => { if(l.textContent.includes('动词') || l.textContent.includes('副词')) l.style.opacity = 0; });
+            smiled.style.top = '200px'; smiled.style.left = '400px';
+            gracefully.style.top = '200px'; gracefully.style.left = '400px';
+            gracefully.style.opacity = 0; smiled.style.opacity = 0;
+            gracefully.style.transform = 'scale(0.5)'; smiled.style.transform = 'scale(0.5)';
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const pp = createBlock('pp', 'smiled gracefully', 'phrase', 200, 350);
+            const label = createLabel('谓语短语 (Predicate Phrase)', 180, 350);
+            setTimeout(() => { pp.style.opacity = 1; pp.style.transform = 'scale(1) translateY(0)'; label.style.opacity = 1; }, 50);
+        }
+        async function assignRoles(data) {
+            const np = document.getElementById('np');
+            const pp = document.getElementById(data.id === 1 ? 'pp' : 'vp');
+            np.style.top = '300px'; np.style.left = '50px'; np.style.opacity = 0; np.style.transform = 'scale(0.5)';
+            pp.style.top = '300px'; pp.style.left = '300px'; pp.style.opacity = 0; pp.style.transform = 'scale(0.5)';
+            document.querySelectorAll('.label').forEach(l => l.style.opacity = 0);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const subject = createBlock('subject', np.textContent, 'component', 300, 50);
+            const predicate = createBlock('predicate', pp.textContent, 'component', 300, 300);
+            const labelSub = createLabel('主语 (Subject)', 280, 50);
+            const labelPred = createLabel('谓语 (Predicate)', 280, 300);
+            setTimeout(() => {
+                subject.style.opacity = 1; subject.style.transform = 'scale(1) translateY(0)';
+                predicate.style.opacity = 1; predicate.style.transform = 'scale(1) translateY(0)';
+                labelSub.style.opacity = 1; labelPred.style.opacity = 1;
+            }, 50);
+        }
+
+        // --- Sentence 2 & 3 Specific Animations ---
+        async function formVerbPhrase(data) {
+            let wordsToCombine, phraseText, top, left;
+            if(data.id === 2) {
+                wordsToCombine = [document.getElementById('word-3'), document.getElementById('word-4')];
+                phraseText = "is sleeping"; top = 200; left = 380;
+            } else { // id === 3
+                wordsToCombine = [document.getElementById('word-1'), document.getElementById('word-2')];
+                phraseText = "will build"; top = 200; left = 180;
+            }
+            wordsToCombine.forEach(el => {
+                el.style.top = `${top}px`; el.style.left = `${left}px`;
+                el.style.opacity = 0; el.style.transform = 'scale(0.5)';
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const vp = createBlock('vp', phraseText, 'phrase', top, left);
+            const label = createLabel('动词短语 (Verb Phrase)', top - 20, left);
+            setTimeout(() => { vp.style.opacity = 1; vp.style.transform = 'scale(1) translateY(0)'; label.style.opacity = 1; }, 50);
+        }
+        async function formObjectPhrase(data) {
+            const wordsToCombine = [document.getElementById('word-3'), document.getElementById('word-4')];
+            const phraseText = "a house";
+            wordsToCombine.forEach(el => {
+                el.style.top = '200px'; el.style.left = '380px';
+                el.style.opacity = 0; el.style.transform = 'scale(0.5)';
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const op = createBlock('op', phraseText, 'phrase', 200, 380);
+            const label = createLabel('名词短语 (Noun Phrase)', 180, 380);
+            setTimeout(() => { op.style.opacity = 1; op.style.transform = 'scale(1) translateY(0)'; label.style.opacity = 1; }, 50);
+        }
+        async function assignAllRoles(data) {
+            const we = document.getElementById('word-0');
+            const vp = document.getElementById('vp');
+            const op = document.getElementById('op');
+            we.style.top = '300px'; we.style.left = '50px'; we.style.opacity = 0; we.style.transform = 'scale(0.5)';
+            vp.style.top = '300px'; vp.style.left = '150px'; vp.style.opacity = 0; vp.style.transform = 'scale(0.5)';
+            op.style.top = '300px'; op.style.left = '350px'; op.style.opacity = 0; op.style.transform = 'scale(0.5)';
+            document.querySelectorAll('.label').forEach(l => l.style.opacity = 0);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const subject = createBlock('subject', 'We', 'component', 300, 50);
+            const predicate = createBlock('predicate', 'will build', 'component', 300, 150);
+            const object = createBlock('object', 'a house', 'component', 300, 350);
+            const labelSub = createLabel('主语', 280, 50);
+            const labelPred = createLabel('谓语', 280, 150);
+            const labelObj = createLabel('宾语', 280, 350);
+
+            setTimeout(() => {
+                [subject, predicate, object, labelSub, labelPred, labelObj].forEach(el => {
+                    el.style.opacity = 1;
+                    if(el.classList.contains('component')) el.style.transform = 'scale(1) translateY(0)';
+                });
+            }, 50);
+        }
+
+        // --- UI Setup ---
+        function setupSelector() {
+            sentences.forEach((sentence, index) => {
+                const button = document.createElement('button');
+                button.textContent = `例句 ${index + 1}`;
+                button.className = 'sentence-btn px-4 py-2 bg-white border border-gray-300 rounded-full shadow-sm text-sm font-medium hover:bg-gray-100';
+                if (index === 0) button.classList.add('active');
+                button.onclick = () => {
+                    currentSentenceIndex = index;
+                    document.querySelectorAll('.sentence-btn').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    statusText.textContent = `已选择: "${sentence.full}"`;
+                };
+                selectorContainer.appendChild(button);
+            });
+        }
+
+        buildBtn.addEventListener('click', runAnimation);
+        setupSelector();
+        statusText.textContent = `已选择: "${sentences[0].full}"`;
+
+    </script>
+</body>
+</html>
