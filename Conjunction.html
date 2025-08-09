@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连词侦探</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+        .tab-btn { transition: all 0.2s ease-in-out; }
+        .tab-btn.active { border-color: #3b82f6; background-color: #eff6ff; color: #2563eb; }
+        .word { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background-color 0.2s; }
+        .word:hover { background-color: #e0e7ff; }
+        .word.selected { background-color: #3b82f6; color: white; }
+        .option-card { cursor: pointer; transition: all 0.2s ease-in-out; }
+        .option-card:hover { transform: scale(1.03); border-color: #93c5fd; }
+        .option-card.correct { border-color: #16a34a; background-color: #d1fae5; }
+        .option-card.incorrect { border-color: #ef4444; background-color: #fee2e2; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6">
+        <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">连词侦探 (Conjunction Detective)</h2>
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-identify" class="tab-btn flex-1 py-3 px-4 font-semibold text-gray-500 border-b-2 border-transparent">🕵️ 识别模式</button>
+            <button id="tab-correct" class="tab-btn flex-1 py-3 px-4 font-semibold text-gray-500 border-b-2 border-transparent">Correct 纠错模式</button>
+        </div>
+
+        <div id="game-container">
+            <!-- Content will be injected here by JS -->
+        </div>
+
+        <div class="flex justify-between items-center mt-6">
+            <p class="text-sm text-gray-500">分数: <span id="score" class="font-bold">0</span></p>
+            <button id="next-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition opacity-0 pointer-events-none">下一题</button>
+        </div>
+    </div>
+
+    <script>
+        const identifyQuestions = [
+            { sentence: "He is rich, yet he is not happy.", conjunction: "yet", type: "并列连词", logic: "转折关系" },
+            { sentence: "I will call you when I get home.", conjunction: "when", type: "从属连词", logic: "时间关系" },
+            { sentence: "Since you are here, you can help me.", conjunction: "since", type: "从属连词", logic: "原因关系" },
+            { sentence: "You can have either the coffee or the tea.", conjunction: ["either", "or"], type: "相关连词", logic: "选择关系" }
+        ];
+
+        const correctQuestions = [
+            { sentence: "Although he was tired, but he kept working.", error: "Although ... but", options: ["Although he was tired, he kept working.", "He was tired, but he kept working.", "Both are correct."], answer: 0 },
+            { sentence: "He doesn't smoke, nor he drinks.", error: "nor he drinks", options: ["nor he does drink.", "nor does he drink.", "or he doesn't drink."], answer: 1 },
+            { sentence: "I didn't go to the party, because I was not invited.", error: "because", options: ["so I was not invited.", "for I was not invited.", "The sentence is correct."], answer: 2 }
+        ];
+
+        let currentMode = 'identify';
+        let currentQuestionIndex = 0;
+        let score = 0;
+
+        const tabIdentify = document.getElementById('tab-identify');
+        const tabCorrect = document.getElementById('tab-correct');
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score');
+        const nextBtn = document.getElementById('next-btn');
+
+        function switchMode(mode) {
+            currentMode = mode;
+            currentQuestionIndex = 0;
+            score = 0;
+            scoreDisplay.textContent = score;
+            nextBtn.classList.add('opacity-0', 'pointer-events-none');
+            
+            if (mode === 'identify') {
+                tabIdentify.classList.add('active');
+                tabCorrect.classList.remove('active');
+                renderIdentifyMode();
+            } else {
+                tabCorrect.classList.add('active');
+                tabIdentify.classList.remove('active');
+                renderCorrectMode();
+            }
+        }
+
+        function renderIdentifyMode() {
+            const q = identifyQuestions[currentQuestionIndex];
+            gameContainer.innerHTML = `
+                <p class="text-center text-gray-600 mb-4">点击下面句子中的连词，并选择它的类型。</p>
+                <div id="sentence-box" class="text-2xl text-center p-4 bg-gray-50 rounded-lg mb-6"></div>
+                <div id="identify-options" class="grid grid-cols-2 gap-4"></div>
+                <p id="identify-feedback" class="text-center mt-4 font-semibold h-6"></p>
+            `;
+            const sentenceBox = document.getElementById('sentence-box');
+            q.sentence.split(' ').forEach(word => {
+                const wordSpan = document.createElement('span');
+                wordSpan.textContent = word.replace(/[,.]/g, '');
+                wordSpan.className = 'word';
+                wordSpan.dataset.word = word.replace(/[,.]/g, '').toLowerCase();
+                wordSpan.addEventListener('click', handleWordClick);
+                sentenceBox.appendChild(wordSpan);
+                sentenceBox.append(' ');
+            });
+            renderIdentifyOptions();
+        }
+
+        function handleWordClick(event) {
+            const selectedWord = event.target;
+            document.querySelectorAll('.word.selected').forEach(w => w.classList.remove('selected'));
+            selectedWord.classList.add('selected');
+        }
+
+        function renderIdentifyOptions() {
+            const options = [
+                { type: "并列连词", logic: "转折关系" },
+                { type: "从属连词", logic: "时间关系" },
+                { type: "从属连词", logic: "原因关系" },
+                { type: "相关连词", logic: "选择关系" }
+            ];
+            const optionsContainer = document.getElementById('identify-options');
+            optionsContainer.innerHTML = '';
+            options.forEach(opt => {
+                const card = document.createElement('div');
+                card.className = 'option-card border-2 border-gray-200 p-4 rounded-lg text-center';
+                card.innerHTML = `<p class="font-bold">${opt.type}</p><p class="text-sm text-gray-500">${opt.logic}</p>`;
+                card.onclick = () => checkIdentifyAnswer(opt, card);
+                optionsContainer.appendChild(card);
+            });
+        }
+
+        function checkIdentifyAnswer(selectedOpt, cardElement) {
+            const q = identifyQuestions[currentQuestionIndex];
+            const selectedWordElements = document.querySelectorAll('.word.selected');
+            const selectedWords = Array.from(selectedWordElements).map(el => el.dataset.word);
+            
+            let isCorrect = false;
+            if (Array.isArray(q.conjunction)) {
+                isCorrect = selectedWords.length === q.conjunction.length && selectedWords.every(w => q.conjunction.includes(w));
+            } else {
+                isCorrect = selectedWords.length === 1 && selectedWords[0] === q.conjunction;
+            }
+
+            const feedback = document.getElementById('identify-feedback');
+            if (isCorrect && selectedOpt.type === q.type && selectedOpt.logic === q.logic) {
+                cardElement.classList.add('correct');
+                feedback.textContent = '完全正确!';
+                feedback.className = 'text-center mt-4 font-semibold h-6 text-green-600';
+                score++;
+                scoreDisplay.textContent = score;
+                nextBtn.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                cardElement.classList.add('incorrect');
+                feedback.textContent = '不对哦，再想想！';
+                feedback.className = 'text-center mt-4 font-semibold h-6 text-red-600';
+            }
+        }
+
+        function renderCorrectMode() {
+            const q = correctQuestions[currentQuestionIndex];
+            gameContainer.innerHTML = `
+                <p class="text-center text-gray-600 mb-4">下面这句话有逻辑错误，请选出正确的句子。</p>
+                <div class="text-2xl text-center p-4 bg-red-50 text-red-700 rounded-lg mb-6">${q.sentence}</div>
+                <div id="correct-options" class="space-y-3"></div>
+                <p id="correct-feedback" class="text-center mt-4 font-semibold h-6"></p>
+            `;
+            const optionsContainer = document.getElementById('correct-options');
+            q.options.forEach((opt, index) => {
+                const card = document.createElement('div');
+                card.className = 'option-card border-2 border-gray-200 p-4 rounded-lg';
+                card.textContent = opt;
+                card.onclick = () => checkCorrectAnswer(index, card);
+                optionsContainer.appendChild(card);
+            });
+        }
+
+        function checkCorrectAnswer(selectedIndex, cardElement) {
+            const q = correctQuestions[currentQuestionIndex];
+            const feedback = document.getElementById('correct-feedback');
+            document.querySelectorAll('.option-card').forEach(c => c.onclick = null);
+
+            if (selectedIndex === q.answer) {
+                cardElement.classList.add('correct');
+                feedback.textContent = '完全正确!';
+                feedback.className = 'text-center mt-4 font-semibold h-6 text-green-600';
+                score++;
+                scoreDisplay.textContent = score;
+                nextBtn.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                cardElement.classList.add('incorrect');
+                feedback.textContent = '不对哦，再想想！';
+                feedback.className = 'text-center mt-4 font-semibold h-6 text-red-600';
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentMode === 'identify' && currentQuestionIndex >= identifyQuestions.length) {
+                currentQuestionIndex = 0;
+            } else if (currentMode === 'correct' && currentQuestionIndex >= correctQuestions.length) {
+                currentQuestionIndex = 0;
+            }
+            nextBtn.classList.add('opacity-0', 'pointer-events-none');
+            if (currentMode === 'identify') {
+                renderIdentifyMode();
+            } else {
+                renderCorrectMode();
+            }
+        });
+
+        tabIdentify.addEventListener('click', () => switchMode('identify'));
+        tabCorrect.addEventListener('click', () => switchMode('correct'));
+
+        // Initial load
+        switchMode('identify');
+    </script>
+</body>
+</html>
