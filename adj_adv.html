@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>形容词与副词工坊</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+        .workshop-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-800 p-4 md:p-6">
+    <div class="w-full max-w-3xl mx-auto">
+        <!-- Section 1: Adjective Sorter -->
+        <div class="workshop-section">
+            <h3 class="text-xl font-bold text-center mb-2">形容词排序器 (Adjective Sorter)</h3>
+            <p class="text-center text-gray-600 mb-4">输入几个形容词（用空格隔开），看看它们正确的排队顺序！</p>
+            <div class="flex flex-col gap-2">
+                <input type="text" id="adjInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="例如: Chinese old beautiful small">
+                <button id="sortBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">排序</button>
+            </div>
+            <div id="sortResult" class="mt-4 text-center hidden">
+                <p class="text-gray-600">正确的顺序是:</p>
+                <p id="sortedAdjectives" class="text-2xl font-mono text-indigo-700 bg-indigo-50 p-3 rounded-md mt-2"></p>
+            </div>
+        </div>
+
+        <!-- Section 2: Comparative/Superlative Generator -->
+        <div class="workshop-section">
+            <h3 class="text-xl font-bold text-center mb-2">比较级/最高级生成器</h3>
+            <p class="text-center text-gray-600 mb-4">输入一个形容词或副词，查看它的“变身”形态。</p>
+            <div class="flex flex-col gap-2">
+                <input type="text" id="wordInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" placeholder="例如: good, happy, beautiful">
+                <button id="transformBtn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition">变身</button>
+            </div>
+            <div id="transformResult" class="mt-4 hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="text-center bg-gray-100 p-4 rounded-lg">
+                    <p class="font-bold">比较级 (Comparative)</p>
+                    <p id="comparative" class="text-2xl font-mono text-green-800"></p>
+                </div>
+                <div class="text-center bg-gray-100 p-4 rounded-lg">
+                    <p class="font-bold">最高级 (Superlative)</p>
+                    <p id="superlative" class="text-2xl font-mono text-green-800"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Sorter Logic ---
+        const adjOrder = {
+            opinion: ['beautiful', 'lovely', 'horrible', 'nice', 'ugly'],
+            size: ['big', 'small', 'long', 'short', 'huge', 'tiny'],
+            age: ['new', 'old', 'ancient', 'young'],
+            shape: ['round', 'square', 'triangular'],
+            color: ['red', 'blue', 'black', 'white', 'green'],
+            origin: ['chinese', 'american', 'italian', 'french'],
+            material: ['wooden', 'plastic', 'silk', 'metal'],
+            purpose: ['dining', 'sleeping', 'reading']
+        };
+        const orderKeys = ['opinion', 'size', 'age', 'shape', 'color', 'origin', 'material', 'purpose'];
+
+        document.getElementById('sortBtn').addEventListener('click', () => {
+            const input = document.getElementById('adjInput').value.toLowerCase().trim();
+            const adjs = input.split(/\s+/).filter(Boolean);
+            const categorized = {};
+            
+            adjs.forEach(adj => {
+                for (const category in adjOrder) {
+                    if (adjOrder[category].includes(adj)) {
+                        if (!categorized[category]) {
+                            categorized[category] = [];
+                        }
+                        categorized[category].push(adj);
+                        return;
+                    }
+                }
+                // If not found, put in a default 'unknown' category (or opinion)
+                if (!categorized['opinion']) categorized['opinion'] = [];
+                categorized['opinion'].push(adj);
+            });
+
+            const sorted = [];
+            orderKeys.forEach(key => {
+                if (categorized[key]) {
+                    sorted.push(...categorized[key]);
+                }
+            });
+
+            document.getElementById('sortedAdjectives').textContent = sorted.join(' ');
+            document.getElementById('sortResult').classList.remove('hidden');
+        });
+
+        // --- Transformer Logic ---
+        const irregulars = {
+            good: ['better', 'best'], well: ['better', 'best'],
+            bad: ['worse', 'worst'], ill: ['worse', 'worst'],
+            many: ['more', 'most'], much: ['more', 'most'],
+            little: ['less', 'least'],
+            far: ['farther/further', 'farthest/furthest']
+        };
+
+        document.getElementById('transformBtn').addEventListener('click', () => {
+            const word = document.getElementById('wordInput').value.toLowerCase().trim();
+            if (!word) return;
+
+            if (irregulars[word]) {
+                document.getElementById('comparative').textContent = irregulars[word][0];
+                document.getElementById('superlative').textContent = `the ${irregulars[word][1]}`;
+                document.getElementById('transformResult').classList.remove('hidden');
+                return;
+            }
+
+            let comparative = '';
+            let superlative = '';
+            const vowels = 'aeiou';
+            
+            // Rule for -y ending
+            if (word.endsWith('y') && !vowels.includes(word.slice(-2, -1))) {
+                comparative = word.slice(0, -1) + 'ier';
+                superlative = word.slice(0, -1) + 'iest';
+            } 
+            // Syllable-based rule (heuristic)
+            else {
+                const syllableCount = (word.match(/[aeiouy]+/g) || []).length;
+                if (syllableCount > 2 || (syllableCount === 2 && !word.endsWith('y') && !word.endsWith('er') && !word.endsWith('le') && !word.endsWith('ow'))) {
+                    comparative = `more ${word}`;
+                    superlative = `most ${word}`;
+                } else {
+                     // CVC rule
+                    if (word.length >= 3 && !vowels.includes(word.slice(-3,-2)) && vowels.includes(word.slice(-2,-1)) && !vowels.includes(word.slice(-1))) {
+                        comparative = word + word.slice(-1) + 'er';
+                        superlative = word + word.slice(-1) + 'est';
+                    } else if (word.endsWith('e')) {
+                        comparative = word + 'r';
+                        superlative = word + 'st';
+                    } else {
+                        comparative = word + 'er';
+                        superlative = word + 'est';
+                    }
+                }
+            }
+            
+            document.getElementById('comparative').textContent = comparative;
+            document.getElementById('superlative').textContent = `the ${superlative}`;
+            document.getElementById('transformResult').classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
