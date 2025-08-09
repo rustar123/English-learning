@@ -17,7 +17,7 @@
         <div id="challenge-container">
             <p class="text-center text-gray-600 mb-4">任务: 建造一个 <strong id="target-phrase-type" class="text-indigo-600"></strong></p>
             <div id="toolbox" class="flex flex-wrap justify-center gap-3 p-4 bg-gray-50 rounded-lg mb-4"></div>
-            <p class="text-center text-sm text-gray-500 mb-2">↓ 将零件拖拽到下方装配区 ↓</p>
+            <p class="text-center text-sm text-gray-500 mb-2">↓ 将零件拖拽到下方装配区 (答错可拖回) ↓</p>
             <div id="assembly-area" class="flex items-center p-4 rounded-lg flex-wrap"></div>
         </div>
         <div id="feedback-message" class="mt-4 text-center font-bold h-6"></div>
@@ -50,7 +50,6 @@
             feedbackMessage.textContent = '';
             nextChallengeBtn.classList.add('hidden');
 
-            // Shuffle pieces for more challenge
             const shuffledPieces = [...challenge.pieces].sort(() => Math.random() - 0.5);
             shuffledPieces.forEach(text => {
                 const piece = document.createElement('div');
@@ -60,52 +59,74 @@
                 toolbox.appendChild(piece);
             });
 
-            assemblyArea.addEventListener('dragover', e => e.preventDefault());
-            assemblyArea.addEventListener('drop', handleDrop);
-            toolbox.addEventListener('dragstart', handleDragStart);
+            // Add event listeners
+            [toolbox, assemblyArea].forEach(area => {
+                area.addEventListener('dragover', e => e.preventDefault());
+                area.addEventListener('drop', handleDrop);
+                area.addEventListener('dragstart', handleDragStart);
+            });
         }
 
         function handleDragStart(e) {
-            draggedItem = e.target;
+            if (e.target.classList.contains('piece')) {
+                draggedItem = e.target;
+            }
         }
 
         function handleDrop(e) {
             e.preventDefault();
-            if (draggedItem && draggedItem.parentElement !== e.currentTarget) {
-                e.currentTarget.appendChild(draggedItem);
+            const dropZone = e.currentTarget;
+            if (draggedItem && draggedItem.parentElement !== dropZone) {
+                // To allow ordering, we need to figure out where to drop it
+                const afterElement = getDragAfterElement(dropZone, e.clientY);
+                if (afterElement == null) {
+                    dropZone.appendChild(draggedItem);
+                } else {
+                    dropZone.insertBefore(draggedItem, afterElement);
+                }
                 checkSolution();
             }
         }
         
-        toolbox.addEventListener('dragover', e => e.preventDefault());
-        toolbox.addEventListener('drop', (e) => {
-             e.preventDefault();
-            if (draggedItem && draggedItem.parentElement !== toolbox) {
-                toolbox.appendChild(draggedItem);
-                 checkSolution();
-            }
-        });
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.piece:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
 
         function checkSolution() {
             const assembledPieces = Array.from(assemblyArea.children).map(child => child.textContent);
             const solution = challenges[currentChallengeIndex].solution;
             
-            if (assembledPieces.length !== solution.length) {
+            if (assembledPieces.length === 0) {
                 feedbackMessage.textContent = '';
                 nextChallengeBtn.classList.add('hidden');
                 return;
             }
 
-            const isCorrect = assembledPieces.every((piece, index) => piece === solution[index]);
-
-            if (isCorrect) {
-                feedbackMessage.textContent = '组装成功！';
-                feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-green-600';
-                nextChallengeBtn.classList.remove('hidden');
+            if (assembledPieces.length === solution.length) {
+                const isCorrect = assembledPieces.every((piece, index) => piece === solution[index]);
+                if (isCorrect) {
+                    feedbackMessage.textContent = '组装成功！';
+                    feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-green-600';
+                    nextChallengeBtn.classList.remove('hidden');
+                } else {
+                    feedbackMessage.textContent = '顺序似乎不对，再试试！';
+                    feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-red-600';
+                    nextChallengeBtn.classList.add('hidden');
+                }
             } else {
-                feedbackMessage.textContent = '顺序似乎不对，再试试！';
-                feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-red-600';
-                nextChallengeBtn.classList.add('hidden');
+                 feedbackMessage.textContent = '零件数量不对哦...';
+                 feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-yellow-600';
+                 nextChallengeBtn.classList.add('hidden');
             }
         }
         
