@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冠词大师挑战</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .blank {
+            display: inline-block;
+            width: 40px;
+            border-bottom: 2px solid #60a5fa;
+            text-align: center;
+            font-weight: bold;
+            color: #1d4ed8;
+            cursor: pointer;
+        }
+        .feedback-correct { color: #16a34a; }
+        .feedback-incorrect { color: #dc2626; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-xl font-bold text-center mb-4">冠词大师挑战 (Article Master)</h3>
+        <div id="challenge-container"></div>
+        <button id="checkBtn" class="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">检查答案</button>
+    </div>
+    <script>
+        const challenges = [
+            { sentence: "I saw ___ amazing movie last night. ___ movie was about ___ history of ___ Japan.", answers: ["an", "The", "the", "ø"] },
+            { sentence: "She is ___ honest person. She works as ___ university professor.", answers: ["an", "a"] },
+            { sentence: "We went to ___ school together, but now he is in ___ hospital.", answers: ["ø", "ø"] },
+            { sentence: "___ rich should help ___ poor. It is ___ universal truth.", answers: ["The", "the", "a"] },
+            { sentence: "He plays ___ piano and speaks ___ Chinese fluently.", answers: ["the", "ø"] }
+        ];
+        let currentChallengeIndex = 0;
+        const container = document.getElementById('challenge-container');
+        const checkBtn = document.getElementById('checkBtn');
+
+        function loadChallenge() {
+            container.innerHTML = '';
+            const challenge = challenges[currentChallengeIndex];
+            let sentenceHTML = challenge.sentence;
+            // Create blanks from right to left to not mess up indices
+            for(let i = challenge.answers.length - 1; i >= 0; i--) {
+                sentenceHTML = sentenceHTML.replace('___', `<input type="text" class="blank" data-answer="${challenge.answers[i]}">`);
+            }
+            const p = document.createElement('p');
+            p.className = 'text-lg text-center leading-loose';
+            p.innerHTML = sentenceHTML;
+            container.appendChild(p);
+        }
+
+        checkBtn.addEventListener('click', () => {
+            const inputs = container.querySelectorAll('input.blank');
+            let allCorrect = true;
+            inputs.forEach(input => {
+                const userAnswer = input.value.trim().toLowerCase();
+                const correctAnswer = input.dataset.answer.toLowerCase();
+                if (userAnswer === correctAnswer || (userAnswer === '' && correctAnswer === 'ø')) {
+                    input.classList.remove('border-red-500');
+                    input.classList.add('border-green-500');
+                } else {
+                    input.classList.remove('border-green-500');
+                    input.classList.add('border-red-500');
+                    allCorrect = false;
+                }
+            });
+
+            if(allCorrect) {
+                alert('太棒了，全部正确！进入下一题。');
+                currentChallengeIndex = (currentChallengeIndex + 1) % challenges.length;
+                loadChallenge();
+            } else {
+                alert('有错误哦，请检查标红的空位。');
+            }
+        });
+
+        loadChallenge();
+    </script>
+</body>
+</html>
