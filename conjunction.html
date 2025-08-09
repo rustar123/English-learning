@@ -3,35 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>连词侦探</title>
+    <title>连词侦探 (Gemini 增强版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
         .tab-btn { transition: all 0.2s ease-in-out; }
         .tab-btn.active { border-color: #3b82f6; background-color: #eff6ff; color: #2563eb; }
-        .word { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background-color 0.2s; }
+        .word { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background-color 0.2s; display: inline-block; }
         .word:hover { background-color: #e0e7ff; }
         .word.selected { background-color: #3b82f6; color: white; }
         .option-card { cursor: pointer; transition: all 0.2s ease-in-out; }
         .option-card:hover { transform: scale(1.03); border-color: #93c5fd; }
         .option-card.correct { border-color: #16a34a; background-color: #d1fae5; }
         .option-card.incorrect { border-color: #ef4444; background-color: #fee2e2; }
+        .gemini-btn {
+            background: linear-gradient(45deg, #4f46e5, #818cf8);
+            border: none;
+            color: white;
+        }
+        .loader {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #FFF;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
     <div class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6">
-        <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">连词侦探 (Conjunction Detective)</h2>
+        <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">连词侦探 (Gemini 增强版)</h2>
         
         <!-- Tabs -->
         <div class="flex border-b border-gray-200 mb-6">
             <button id="tab-identify" class="tab-btn flex-1 py-3 px-4 font-semibold text-gray-500 border-b-2 border-transparent">🕵️ 识别模式</button>
-            <button id="tab-correct" class="tab-btn flex-1 py-3 px-4 font-semibold text-gray-500 border-b-2 border-transparent">Correct 纠错模式</button>
+            <button id="tab-correct" class="tab-btn flex-1 py-3 px-4 font-semibold text-gray-500 border-b-2 border-transparent">✍️ 纠错模式</button>
         </div>
 
         <div id="game-container">
             <!-- Content will be injected here by JS -->
         </div>
+
+        <!-- Gemini API Features Container -->
+        <div id="gemini-features" class="mt-4 space-y-2"></div>
+        <div id="gemini-response-container" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden"></div>
+
 
         <div class="flex justify-between items-center mt-6">
             <p class="text-sm text-gray-500">分数: <span id="score" class="font-bold">0</span></p>
@@ -48,9 +72,9 @@
         ];
 
         const correctQuestions = [
-            { sentence: "Although he was tired, but he kept working.", error: "Although ... but", options: ["Although he was tired, he kept working.", "He was tired, but he kept working.", "Both are correct."], answer: 0 },
-            { sentence: "He doesn't smoke, nor he drinks.", error: "nor he drinks", options: ["nor he does drink.", "nor does he drink.", "or he doesn't drink."], answer: 1 },
-            { sentence: "I didn't go to the party, because I was not invited.", error: "because", options: ["so I was not invited.", "for I was not invited.", "The sentence is correct."], answer: 2 }
+            { sentence: "Although he was tired, but he kept working.", error: "Although ... but", options: ["Although he was tired, he kept working.", "He was tired, but he kept working.", "Both are correct."], answer: 0, correctSentence: "Although he was tired, he kept working." },
+            { sentence: "He doesn't smoke, nor he drinks.", error: "nor he drinks", options: ["nor he does drink.", "nor does he drink.", "or he doesn't drink."], answer: 1, correctSentence: "He doesn't smoke, nor does he drink." },
+            { sentence: "I didn't go to the party, because I was not invited.", error: "because", options: ["so I was not invited.", "for I was not invited.", "The sentence is correct."], answer: 2, correctSentence: "I didn't go to the party, for I was not invited." }
         ];
 
         let currentMode = 'identify';
@@ -62,6 +86,76 @@
         const gameContainer = document.getElementById('game-container');
         const scoreDisplay = document.getElementById('score');
         const nextBtn = document.getElementById('next-btn');
+        const geminiFeaturesContainer = document.getElementById('gemini-features');
+        const geminiResponseContainer = document.getElementById('gemini-response-container');
+
+        // --- Gemini API Call ---
+        async function callGemini(prompt, buttonElement) {
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = `<span class="loader"></span>`;
+            buttonElement.disabled = true;
+            geminiResponseContainer.classList.remove('hidden');
+            geminiResponseContainer.innerHTML = '思考中...';
+
+            const apiKey = ""; // Canvas will provide this
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    geminiResponseContainer.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    geminiResponseContainer.innerHTML = '抱歉，无法获取回复。请重试。';
+                }
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                geminiResponseContainer.innerHTML = '请求失败，请检查网络或稍后再试。';
+            } finally {
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+            }
+        }
+
+        function showGeminiFeatures(isCorrect, correctSentence, incorrectSentence = '') {
+            geminiFeaturesContainer.innerHTML = '';
+            geminiResponseContainer.classList.add('hidden');
+
+            if (isCorrect) {
+                const expandBtn = document.createElement('button');
+                expandBtn.innerHTML = '✨ 帮我续写这个故事';
+                expandBtn.className = 'gemini-btn w-full text-left p-3 rounded-lg font-semibold';
+                expandBtn.onclick = () => {
+                    const prompt = `Based on the sentence "${correctSentence}", continue the story with one more creative sentence. Use a different conjunction.`;
+                    callGemini(prompt, expandBtn);
+                };
+                geminiFeaturesContainer.appendChild(expandBtn);
+            } else {
+                const explainBtn = document.createElement('button');
+                explainBtn.innerHTML = '✨ 为什么错了？ (Gemini 解析)';
+                explainBtn.className = 'gemini-btn w-full text-left p-3 rounded-lg font-semibold';
+                explainBtn.onclick = () => {
+                    const prompt = `In simple Chinese, explain why the sentence "${incorrectSentence}" is grammatically incorrect, and why "${correctSentence}" is the correct version. Focus on the use of conjunctions.`;
+                    callGemini(prompt, explainBtn);
+                };
+                geminiFeaturesContainer.appendChild(explainBtn);
+            }
+        }
+
 
         function switchMode(mode) {
             currentMode = mode;
@@ -69,6 +163,8 @@
             score = 0;
             scoreDisplay.textContent = score;
             nextBtn.classList.add('opacity-0', 'pointer-events-none');
+            geminiFeaturesContainer.innerHTML = '';
+            geminiResponseContainer.classList.add('hidden');
             
             if (mode === 'identify') {
                 tabIdentify.classList.add('active');
@@ -104,8 +200,11 @@
 
         function handleWordClick(event) {
             const selectedWord = event.target;
-            document.querySelectorAll('.word.selected').forEach(w => w.classList.remove('selected'));
-            selectedWord.classList.add('selected');
+            const isRelated = identifyQuestions[currentQuestionIndex].type === "相关连词";
+            if (!isRelated) {
+                document.querySelectorAll('.word.selected').forEach(w => w.classList.remove('selected'));
+            }
+            selectedWord.classList.toggle('selected');
         }
 
         function renderIdentifyOptions() {
@@ -146,6 +245,7 @@
                 score++;
                 scoreDisplay.textContent = score;
                 nextBtn.classList.remove('opacity-0', 'pointer-events-none');
+                showGeminiFeatures(true, q.sentence);
             } else {
                 cardElement.classList.add('incorrect');
                 feedback.textContent = '不对哦，再想想！';
@@ -183,10 +283,12 @@
                 score++;
                 scoreDisplay.textContent = score;
                 nextBtn.classList.remove('opacity-0', 'pointer-events-none');
+                showGeminiFeatures(true, q.correctSentence);
             } else {
                 cardElement.classList.add('incorrect');
                 feedback.textContent = '不对哦，再想想！';
                 feedback.className = 'text-center mt-4 font-semibold h-6 text-red-600';
+                showGeminiFeatures(false, q.correctSentence, q.sentence);
             }
         }
 
@@ -198,6 +300,8 @@
                 currentQuestionIndex = 0;
             }
             nextBtn.classList.add('opacity-0', 'pointer-events-none');
+            geminiFeaturesContainer.innerHTML = '';
+            geminiResponseContainer.classList.add('hidden');
             if (currentMode === 'identify') {
                 renderIdentifyMode();
             } else {
@@ -213,3 +317,4 @@
     </script>
 </body>
 </html>
+
