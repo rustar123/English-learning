@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>短语建造工厂 v2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .piece { cursor: grab; user-select: none; transition: all 0.2s ease-in-out; }
+        .piece:active { cursor: grabbing; transform: scale(1.1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        #assembly-area { min-height: 80px; background-color: #f3f4f6; border: 2px dashed #d1d5db; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h2 class="text-2xl font-bold text-center mb-4">短语建造工厂 v2.0</h2>
+        <div id="challenge-container">
+            <p class="text-center text-gray-600 mb-4">任务: 建造一个 <strong id="target-phrase-type" class="text-indigo-600"></strong></p>
+            <div id="toolbox" class="flex flex-wrap justify-center gap-3 p-4 bg-gray-50 rounded-lg mb-4"></div>
+            <p class="text-center text-sm text-gray-500 mb-2">↓ 将零件拖拽到下方装配区 ↓</p>
+            <div id="assembly-area" class="flex items-center p-4 rounded-lg flex-wrap"></div>
+        </div>
+        <div id="feedback-message" class="mt-4 text-center font-bold h-6"></div>
+        <button id="next-challenge" class="mt-4 w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition hidden">下一个挑战</button>
+    </div>
+
+    <script>
+        const challenges = [
+            { type: '名词短语 (Noun Phrase)', pieces: ['a', 'girl', 'beautiful'], solution: ['a', 'beautiful', 'girl'] },
+            { type: '动词短语 (Verb Phrase)', pieces: ['studying', 'been', 'has'], solution: ['has', 'been', 'studying'] },
+            { type: '介词短语 (Prepositional Phrase)', pieces: ['the', 'morning', 'in'], solution: ['in', 'the', 'morning'] },
+            { type: '动名词短语 (Gerund Phrase)', pieces: ['ocean', 'the', 'in', 'swimming'], solution: ['swimming', 'in', 'the', 'ocean'] },
+            { type: '不定式短语 (Infinitive Phrase)', pieces: ['language', 'a', 'new', 'to', 'learn'], solution: ['to', 'learn', 'a', 'new', 'language'] },
+            { type: '分词短语 (Participle Phrase)', pieces: ['father', 'my', 'to', 'talking', 'the', 'man'], solution: ['the', 'man', 'talking', 'to', 'my', 'father'] }
+        ];
+        let currentChallengeIndex = 0;
+        let draggedItem = null;
+
+        const toolbox = document.getElementById('toolbox');
+        const assemblyArea = document.getElementById('assembly-area');
+        const targetPhraseType = document.getElementById('target-phrase-type');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const nextChallengeBtn = document.getElementById('next-challenge');
+
+        function setupChallenge() {
+            const challenge = challenges[currentChallengeIndex];
+            targetPhraseType.textContent = challenge.type;
+            toolbox.innerHTML = '';
+            assemblyArea.innerHTML = '';
+            feedbackMessage.textContent = '';
+            nextChallengeBtn.classList.add('hidden');
+
+            // Shuffle pieces for more challenge
+            const shuffledPieces = [...challenge.pieces].sort(() => Math.random() - 0.5);
+            shuffledPieces.forEach(text => {
+                const piece = document.createElement('div');
+                piece.textContent = text;
+                piece.className = 'piece px-4 py-2 bg-blue-100 text-blue-800 font-semibold rounded-md shadow m-1';
+                piece.draggable = true;
+                toolbox.appendChild(piece);
+            });
+
+            assemblyArea.addEventListener('dragover', e => e.preventDefault());
+            assemblyArea.addEventListener('drop', handleDrop);
+            toolbox.addEventListener('dragstart', handleDragStart);
+        }
+
+        function handleDragStart(e) {
+            draggedItem = e.target;
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            if (draggedItem && draggedItem.parentElement !== e.currentTarget) {
+                e.currentTarget.appendChild(draggedItem);
+                checkSolution();
+            }
+        }
+        
+        toolbox.addEventListener('dragover', e => e.preventDefault());
+        toolbox.addEventListener('drop', (e) => {
+             e.preventDefault();
+            if (draggedItem && draggedItem.parentElement !== toolbox) {
+                toolbox.appendChild(draggedItem);
+                 checkSolution();
+            }
+        });
+
+        function checkSolution() {
+            const assembledPieces = Array.from(assemblyArea.children).map(child => child.textContent);
+            const solution = challenges[currentChallengeIndex].solution;
+            
+            if (assembledPieces.length !== solution.length) {
+                feedbackMessage.textContent = '';
+                nextChallengeBtn.classList.add('hidden');
+                return;
+            }
+
+            const isCorrect = assembledPieces.every((piece, index) => piece === solution[index]);
+
+            if (isCorrect) {
+                feedbackMessage.textContent = '组装成功！';
+                feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-green-600';
+                nextChallengeBtn.classList.remove('hidden');
+            } else {
+                feedbackMessage.textContent = '顺序似乎不对，再试试！';
+                feedbackMessage.className = 'mt-4 text-center font-bold h-6 text-red-600';
+                nextChallengeBtn.classList.add('hidden');
+            }
+        }
+        
+        nextChallengeBtn.addEventListener('click', () => {
+            currentChallengeIndex = (currentChallengeIndex + 1) % challenges.length;
+            setupChallenge();
+        });
+
+        setupChallenge();
+    </script>
+</body>
+</html>
