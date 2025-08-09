@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>介词靶心 v2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style> .option-btn:hover { background-color: #f0f0f0; } .correct { background-color: #d1fae5 !important; border-color: #10b981 !important; } .incorrect { background-color: #fee2e2 !important; border-color: #ef4444 !important; } </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-xl font-bold text-center mb-1">介词靶心 (Preposition Target)</h3>
+        <p id="score" class="text-center text-gray-500 mb-4">分数: 0</p>
+        <div id="question-container" class="text-center">
+            <p class="text-lg mb-4" id="sentence-display"></p>
+            <div id="options" class="grid grid-cols-3 gap-3"></div>
+        </div>
+        <div id="feedback" class="mt-4 text-center font-bold h-6"></div>
+    </div>
+    <script>
+        const questions = [
+            { sentence: "The meeting is ___ Friday morning.", options: ["at", "on", "in"], answer: "on", explanation: "精确到某一天用 'on'." },
+            { sentence: "I will see you ___ 5 PM.", options: ["at", "on", "in"], answer: "at", explanation: "精确时刻用 'at'." },
+            { sentence: "My birthday is ___ October.", options: ["at", "on", "in"], answer: "in", explanation: "月份是时间段，用 'in'." },
+            { sentence: "The book is ___ the table.", options: ["at", "on", "in"], answer: "on", explanation: "在物体表面用 'on'." },
+            { sentence: "He lives ___ London.", options: ["at", "on", "in"], answer: "in", explanation: "在城市内部用 'in'." },
+            { sentence: "We arrived ___ the airport.", options: ["at", "on", "in"], answer: "at", explanation: "机场被视为一个位置点，用 'at'." },
+            { sentence: "Look at the picture ___ the wall.", options: ["at", "on", "in"], answer: "on", explanation: "画在墙的表面上，用 'on'." },
+            { sentence: "I usually wake up ___ night.", options: ["at", "on", "in"], answer: "at", explanation: "固定搭配 'at night'." },
+            { sentence: "She jumped ___ the river.", options: ["to", "into", "on"], answer: "into", explanation: "'into' 强调进入内部的动作。" },
+            { sentence: "This gift is ___ you.", options: ["with", "for", "by"], answer: "for", explanation: "'for' 表示目的或对象。" }
+        ];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        const sentenceDisplay = document.getElementById('sentence-display');
+        const optionsDiv = document.getElementById('options');
+        const feedbackDiv = document.getElementById('feedback');
+        const scoreDisplay = document.getElementById('score');
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            sentenceDisplay.innerHTML = q.sentence.replace('___', '<span class="font-bold text-blue-600">___</span>');
+            optionsDiv.innerHTML = '';
+            feedbackDiv.innerHTML = '';
+            q.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'option-btn p-3 border border-gray-300 rounded-lg transition';
+                button.onclick = (event) => checkAnswer(option, event.target);
+                optionsDiv.appendChild(button);
+            });
+        }
+        function checkAnswer(selected, btnElement) {
+            const q = questions[currentQuestionIndex];
+            Array.from(optionsDiv.children).forEach(btn => btn.disabled = true);
+            if (selected === q.answer) {
+                score++;
+                scoreDisplay.textContent = `分数: ${score}`;
+                btnElement.classList.add('correct');
+                feedbackDiv.textContent = '正确! ' + q.explanation;
+                feedbackDiv.className = 'mt-4 text-center font-bold text-green-600';
+            } else {
+                btnElement.classList.add('incorrect');
+                feedbackDiv.textContent = `错误。正确答案是 '${q.answer}'.`;
+                feedbackDiv.className = 'mt-4 text-center font-bold text-red-600';
+                // Highlight correct answer
+                Array.from(optionsDiv.children).forEach(btn => {
+                    if(btn.textContent === q.answer) btn.classList.add('correct');
+                });
+            }
+            setTimeout(() => {
+                currentQuestionIndex = (currentQuestionIndex + 1) % questions.length;
+                loadQuestion();
+            }, 3000);
+        }
+        loadQuestion();
+    </script>
+</body>
+</html>
